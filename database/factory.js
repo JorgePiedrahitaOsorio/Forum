@@ -22,9 +22,18 @@ const Factory2 = use('Factory')
 //   }
 // })
 
-Factory2.blueprint('App/Models/Thread', (faker) => {
+Factory2.blueprint('App/Models/Thread', async (faker) => {
   return {
     title: faker.word(),
     body: faker.paragraph(),
+    user_id: (await Factory.model('App/Models/User').create()).id
+  }
+})
+
+Factory2.blueprint('App/Models/User', (faker) => {
+  return {
+    username: faker.username(),
+    email: faker.email(),
+    password: '123456',
   }
 })

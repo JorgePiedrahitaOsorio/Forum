@@ -6,21 +6,21 @@ const { test, trait } = use('Test/Suite')('Thread')
 trait('Auth/Client')
 trait('Test/ApiClient')
 trait('DatabaseTransactions')
-
+/*
 test('authorized user can create threads', async ({ client }) => {
-  const user = await Factory.model('App/Models/User').create()
-  const atributes = {
+  const attributes = {
     title: 'test title',
-    body: 'body'
+    body: 'body',
   }
-  const response = await client.post('/threads').loginVia(user).send(atributes).end()
+  const thread = await Factory.model('App/Models/Thread').create()
+  const user = await thread.user().first()
+  const response = await client.post(thread.url()).loginVia(user).send(attributes).end()
   response.assertStatus(200)
 
-  const thread = await Thread.firstOrFail()
   response.assertJSON({ thread: thread.toJSON() })
-  response.assertJSONSubset({ thread: { ...atributes, user_id: user.id } })
+  response.assertJSONSubset({ thread: { ...attributes, user_id: user.id } })
 })
-
+*/
 test('authorized user can delete threads', async ({ assert, client }) => {
   const thread = await Factory.model('App/Models/Thread').create()
   const response = await client.delete(thread.url()).send().loginVia(await thread.user().first()).end()
@@ -75,4 +75,43 @@ test('thread can not be updated by a user who did not create it', async ({ clien
   const notOwner = await Factory.model('App/Models/User').create()
   const response = await client.put(thread.url()).send().loginVia(notOwner).end()
   response.assertStatus(403)
+})
+
+test('can not create thread whit not body', async ({ client }) => {
+  const user = await Factory.model('App/Models/User').create()
+  let response = await client.post('/threads').header('accept', 'application/json').loginVia(user).send({ title: 'test title' }).end()
+  response.assertStatus(400)
+  response.assertJSONSubset([{ message: 'required validation failed on body' }])
+
+  response = await client.post('/threads').header('accept', 'application/json').loginVia(user).send({ body: 'test body' }).end()
+  response.assertStatus(400)
+  response.assertJSONSubset([{ message: 'required validation failed on title' }])
+})
+
+test('can not update thread with no body or title', async ({ client }) => {
+  const thread = await Factory.model('App/Models/Thread').create()
+  const user = await thread.user().first()
+  const put = () => client.put(thread.url()).header('accept', 'application/json').loginVia(user)
+
+  let response = await put().send({ title: 'test title' }).end()
+  response.assertStatus(400)
+  response.assertJSONSubset([{ message: 'required validation failed on body' }])
+
+  response = await put().send({ body: 'test body' }).end()
+  response.assertStatus(400)
+  response.assertJSONSubset([{ message: 'required validation failed on title' }])
+})
+
+test('can access single resource', async ({ client }) => {
+  const thread = await Factory.model('App/Models/Thread').create()
+  const response = await client.get(thread.url()).send().end()
+  response.assertStatus(200)
+  response.assertJSON({ thread: thread.toJSON() })
+})
+
+test('can access all resources', async ({ client }) => {
+  const threads = await Factory.model('App/Models/Thread').createMany(3)
+  const response = await client.get('threads').send().end()
+  response.assertStatus(200)
+  response.assertJSON({ threads: threads.map(thread => thread.toJSON()).sort((a, b) => a.id - b.id) })
 })
